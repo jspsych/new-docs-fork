@@ -1,5 +1,5 @@
 import {useEffect, useRef} from 'react';
-import JspsychBrain, {BRAIN_GRAPH} from '@site/src/components/JspsychBrain';
+import {JspsychBrain, BRAIN_GRAPH} from '@jspsych/docusaurus-theme/components';
 import styles from './styles.module.css';
 
 /**
