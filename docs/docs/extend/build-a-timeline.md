@@ -426,10 +426,9 @@ export function createTimeline(jsPsych:JsPsych) {
 
   return timeline
 }
-
 ```
 
-This keeps our code maintainable in two critical ways. First, with `createTimeline` rewritten and consolidated as `timelineUnits`, we can identify and debug errors more easily. There is never a world, for example, where one of our `timelineUnits` break but `createTimeline` works fine, and vice versa. Second, when we start adding parameters in the next section, we only need to write the logic for evaluating those parameters once. Otherwise, we might end up writing redundant or even incommensurate logic, once to evaluate a parameter in `createTimeline` and another to evaluate the same parameter in however many units depend on it.
+This keeps our code maintainable in two critical ways. First, with `createTimeline` rewritten and consolidated as `timelineUnits`, we can identify and debug errors more easily. There is never a world, for example, where one of our `timelineUnits` break but `createTimeline` works fine. Second, when we start adding parameters in the next section, we only need to write the logic for evaluating those parameters once. Otherwise, we might end up writing redundant or even incommensurate logic, once to evaluate a parameter in `createTimeline` and another to evaluate the same parameter in however many units depend on it.
 
 If we run another build, we can see that our `createTimeline` call in `examples/index.html` still works fine.
 
@@ -443,13 +442,13 @@ export const timelineUnits = {
 }
 ```
 
-After doing so and running another build, we can now each `timelineUnit` as well from `examples/index.html`, separately.
+After running another build, we can now call each `timelineUnit` as well from `examples/index.html`, separately.
 
 :::warning Introduce `examples/index.html`
 Put something in the overview, under the first header, that explains `examples/index.html`
 :::
 
-```html
+```html title='examples/index.html'
 <script>
  const jsPsych = initJsPsych();
 
@@ -584,12 +583,12 @@ With our `timelineUnits` bracketed out and exported, anyone could isolate, rearr
     ```
 </details>
 
-## Designing and executing parameters
+## Designing and implementing parameters
 
 Now that we have our initial experiment sectioned off into `timelineUnits`, we can now think about designing parameters, based on how we might want to modify the task for iterative deployments.
 
 Let's define our parameters as a Javascript object named `options`. Let's begin with this initial set of parameters:
-- `repetitions`: An integer that determines the amount of times the pair of "blue" and "orange" trials repeats. Basically a parametrized version of the `repetition` parameter that already exists in the `timeline_procedure` object!
+- `repetitions`: An integer that determines the amount of times the pair of "blue" and "orange" trials repeats; basically a parameterization of the original `timeline_procedure` object's `repetitions` property
 - `instructions`: A Boolean that allows the timeline to include the instructions trial if `True`
 - `debrief`: A Boolean that allows the timeline to include the debrief trial if `True`
 
@@ -605,52 +604,59 @@ const options = {
 const task = jsPsychTimelineReactionTimeDemo.createTimeline(jsPsych, options)
 ```
 
-Let's start by scoping out these options in `createTimeline()`. For anyone who's developed a jsPsych plugin before, this process will look a little analogous to that one, albeit without any of the first-party formats provided with our plugin template.
+We'll tackle parametrizing our timeline package in two steps: first by implementing parameters at the scope of our `timelineUnits`, then by typing an object for our parameters through `createTimeline`'s functional signature.
 
-We'll start by defining an object at the start of `createTimeline()` that holds all of our default parameters. For example, we can include instructions, debrief, and 5 repetitions by default to match our original experiment.
+### Implementing parameters in `timelineUnits`
 
-```javascript
-export function createTimeline(jsPsych:JsPsych) {
+Let's first go through each `timelineUnit` and implement the parameters that pertain to them&mdash;that is, `repetitions` in `timelineTest`, `instructions` in `timelineIntro`, and `debrief` in `timelineDebrief`. 
 
-    /* create timeline */ 
-    var timeline = [];
-
-    const defaultOptions = {
-      repetitions: 5,
-      welcome: true,
-      instructions: true,
-      debrief: true
-    };
-```
-
-:::warning rewrite in the context of `createTimeline`
-Assuming you move this section to before the timelineUnits section, consider rewriting what follows in the context of that main function.
-:::
-
-Now, let's write implementations for these parameters in each of their corresponding `timelineUnits`. 
-
-We'll start with `repetitions`, since its first implementation will be a simple matter of swapping a hardcoded value for the value stored in the `options` object, in this case by assigning `defaultOptions.repetitions` to the `repetitions` parameter in `test_procedure`.
+We'll start with `repetitions`, since its first implementation will be a simple matter of swapping out a hardcoded value. We can do this by adding a second argument for `optionRepetitions`, then reading it to the definition of `test_procedure`.
 
 ```javascript
-var test_procedure = {
-    timeline: [fixation, test],
-    timeline_variables: test_stimuli,
-    repetitions: defaultOptions.repetitions,
-    randomize_order: true
-};
+function timelineTest(jsPsych: JsPsych, optionRepetitions: number) {
+   var test_stimuli = [
+     { stimulus: "../blue.png",  correct_response: 'f'},
+     { stimulus: "../orange.png",  correct_response: 'j'}
+   ];
+
+   var fixation = {
+     type: jsPsychHtmlKeyboardResponse,
+     stimulus: '<div style="font-size:60px;">+</div>',
+     choices: "NO_KEYS",
+     trial_duration: function(){
+       return jsPsych.randomization.sampleWithoutReplacement([250, 500, 750, 1000, 1250, 1500, 1750, 2000], 1)[0];
+     },
+     data: {
+       task: 'fixation'
+     }
+   };
+
+   var test = {
+     type: jsPsychImageKeyboardResponse,
+     stimulus: jsPsych.timelineVariable('stimulus'),
+     choices: ['f', 'j'],
+     data: {
+       task: 'response',
+       correct_response: jsPsych.timelineVariable('correct_response');
+     },
+     on_finish: function(data){
+       data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+     }
+   };
+
+   var test_procedure = {
+     timeline: [fixation, test],
+     timeline_variables: test_stimuli,
+     repetitions: optionRepetitions,
+     randomize_order: true
+   };
+
+   return test_procedure;
+}
 ```
 
-The other parameters will need a little new logic, since they affect whether whole trials are included on execution.
+The other parameters will need a little additional logic, since they affect whether whole trials are included on execution. For `instructions`, we can write an `if`-statement that depends on an `optionInstructions` argument, then wrap the `intro_block.push(instructions)` call.
 
-:::danger Editing Checkpoint
-Where you left off on last editing this section
-:::
-
-For `instructions`, we can write a basic implementation by wrapping our definition of `var instructions` in an `if`-statement. We'll define `instructions` as a trial object in the case that `optionInstructions` is true. Otherwise, we define `var instructions` as an empty array, since this implementation assumes an `instructions` variable will be pushed to the `intro_block` array either way. We'll also add `optionInstructions` as an argument for the `timelineIntro` function.
-
-:::warning Bug: Typing
-Need to declare `instructions` as a variable with type array or object before you can run the parametrized unit. Same with `debrief`.
-:::
 ```javascript
 function timelineIntro(jsPsych: JsPsych, optionInstructions) {
    var intro_block = [];
@@ -660,90 +666,180 @@ function timelineIntro(jsPsych: JsPsych, optionInstructions) {
      stimulus: "Welcome to the experiment. Press any key to begin."
    };
 
-   intro.push(welcome)
+   intro_block.push(welcome)
+
+   var instructions = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <p>In this experiment, a circle will appear in the center
+      of the screen.</p><p>If the circle is <strong>blue</strong>,
+      press the letter F on the keyboard as fast as you can.</p>
+      <p>If the circle is <strong>orange</strong>, press the letter J
+      as fast as you can.</p>
+      <div style='width: 700px;'>
+      <div style='float: left;'><img src='../assets/blue.png'></img>
+      <p class='small'><strong>Press the F key</strong></p></div>
+      <div style='float: right;'><img src='../assets/orange.png'></img>
+      <p class='small'><strong>Press the J key</strong></p></div>
+      </div>
+      <p>Press any key to begin.</p>
+    `,
+    post_trial_gap: 2000
+   };
 
    if(optionInstructions){
-    var instructions = {
-     type: jsPsychHtmlKeyboardResponse,
-     stimulus: `
-       <p>In this experiment, a circle will appear in the center
-       of the screen.</p><p>If the circle is <strong>blue</strong>,
-       press the letter F on the keyboard as fast as you can.</p>
-       <p>If the circle is <strong>orange</strong>, press the letter J
-       as fast as you can.</p>
-       <div style='width: 700px;'>
-       <div style='float: left;'><img src='../assets/blue.png'></img>
-       <p class='small'><strong>Press the F key</strong></p></div>
-       <div style='float: right;'><img src='../assets/orange.png'></img>
-       <p class='small'><strong>Press the J key</strong></p></div>
-       </div>
-       <p>Press any key to begin.</p>
-     `,
-     post_trial_gap: 2000
-    };
-   } else {
-    var instructions = []
+    intro_block.push(instructions)
+    return intro_block
    }
 
-   intro.push(instructions)
-
-   return intro
+   return intro_block
 }
 ```
 
-We can do much the same thing with `debrief`. Let's define `var debrief_block` as the expected trial object if `optionsDebrief` is true, and define `debrief_block` as an empty array otherwise. Once again, we're also remembering to add `optionDebrief` as an argument.
+We can do much the same thing with `debrief`. Let's wrap `return debrief_block` in an `if`-statement that evaluates an `optionDebrief` argument. Otherwise, `timelineDebrief` will now return an empty array.
 
 ```javascript
 function timelineDebrief(jsPsych: JsPsych, optionDebrief) {
-   if(optionDebrief){
-    var debrief_block = {
-       type: jsPsychHtmlKeyboardResponse,
-       stimulus: function() {
 
-         var trials = jsPsych.data.get().filter({task: 'response'});
-         var correct_trials = trials.filter({correct: true});
-         var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-         var rt = Math.round(correct_trials.select('rt').mean());
+  var debrief_block = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function() {
 
-         return `<p>You responded correctly on ${accuracy}% of the trials.</p>
-           <p>Your average response time was ${rt}ms.</p>
-           <p>Press any key to complete the experiment. Thank you!</p>`;
+      var trials = jsPsych.data.get().filter({task: 'response'});
+      var correct_trials = trials.filter({correct: true});
+      var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+      var rt = Math.round(correct_trials.select('rt').mean());
 
-       }
-     }
-   } else {
-     var debrief_block = []
-   }
+      return `<p>You responded correctly on ${accuracy}% of the trials.</p>
+        <p>Your average response time was ${rt}ms.</p>
+        <p>Press any key to complete the experiment. Thank you!</p>`;
 
-   return debrief
+    }
+  }
+
+  if(optionDebrief){
+    return debrief_block
+  } else {
+    return []
+  }
 }
 ```
 
-All that's left is to adjust `createTimeline()` so that each timelineUnit call takes their new arguments, respectively.
+:::tip Alternative Implementation: Conditional Definition Instead Of Conditional Push
+For `instructions`, we can write a basic implementation by wrapping our definition of `var instructions` in an `if`-statement. We'll define `instructions` as a trial object in the case that `optionInstructions` is true. Otherwise, we define `var instructions` as an empty array, since this implementation assumes an `instructions` variable will be pushed to the `intro_block` array either way. We'll also add `optionInstructions` as an argument for the `timelineIntro` function.
+
+:::warning Bug: Typing
+Need to declare `instructions` as a variable with type array or object before you can run the parametrized unit. Same with `debrief`.
+:::
+
+With our implementational logic figured out, we should set a fallback for each of our second arguments. We can accomplish that in the functional signature of each `timelineUnit`, like so:
 
 ```javascript
-export function createTimeline(jsPsych: jsPsych, options){
- // fill this in with what the current function would look like at this stage
+function timelineTest(jsPsych: JsPsych, optionRepetitions: number = 5)
+```
+```javascript
+function timelineIntro(jsPsych: JsPsych, optionInstructions: boolean = true)
+```
+```javascript
+function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true)
+```
+
+These fallbacks allow use to successfully call each `timelineUnit` without defining the second argument. Instead, each `timelineUnit` will reference the fallback by default. This is how we set default parameters as if the timeline were a plugin. This is also how we keep our package build from breaking, insofar as none of the `timelineUnit` calls in `createTimeline` define these parameter arguments&mdash;at least not yet.
+
+Now, on next build, we'll be able to run these `timelineUnits` from `index.html` while configuring each unit's behavior with the second argument.
+
+```html title='examples/index.html'
+<script>
+  const jsPsych = initJsPsych({
+    on_finish: function() {
+    jsPsych.data.displayData();
+  }});
+
+  const intro = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineIntro(jsPsych, false);
+  const test = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5);
+  const debrief = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineDebrief(jsPsych, true);
+
+  jsPsych.run([intro, test, debrief])
+</script>
+```
+
+
+
+### Typing the parameters object in `createTimeline`
+
+There's one last thing to do to fully parameterize our package. While we can read parameters as arguments directly to each exported `timelineUnit`, our `createTimeline` export isn't yet written to take those parameters. To recap, `createTimeline` should work like a complete kit of every way `timelineUnits`&mdash;and later `utils`&mdash;can be configured.
+
+To help `createTimeline` handle this configurability, we need to add arguments to its functional signature. We could start with a single `options` argument, presume `options` is an object with a property for each parameter, then reference those properties in each `timelineUnit` call.
+
+```javascript
+export function createTimeline(jsPsych:JsPsych, options ) {
+
+  var timeline = [];
+
+  timeline.push(timelineIntro(jsPsych, options.instructions));
+  timeline.push(timelineTest(jsPsych, options.repetitions));
+  timeline.push(timelineDebrief(jsPsych, options.debrief));
+
+  return timeline;
 }
 ```
 
-Now, on next build, we'll be able to run these timelineUnits again from the `index.html`, this time altering each unit's behavior through each's new, second argument.
+This would compile fine and is serviceable as a quick and dirty solution. However, what if our user doesn't want to configure every parameter? What if their `options` object contains some parameters, but not others? What about if their `options` argument includes typos, or isn't even an object at all? 
 
-```javascript title='examples/index.html'
-const jsPsych = initJsPsych({
-  on_finish: function() {
-  jsPsych.data.displayData();
-}});
+To weigh an alternative, we could define an argument for each timeline parameter. However, that could eventually get out of hand, for users and developers alike. Our code would become less readable as we implement new parameters or wrote in fallbacks. We'd also need to make sure any fallbacks in `createTimeline` matched those in our `timelineUnits`. Users' deployment scripts would also become less manageable since they'd lack the flexibility to implement a range of often counterbalanced configurations.
 
-const intro = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineIntro(jsPsych, false);
-const test = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5);
-const debrief = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineDebrief(jsPsych, true);
+This is where we can lean into the additional control Typescript affords us as developers. Let's start by typing `options` as an object with each of our parameters.
 
-jsPsych.run([intro, test, debrief])
+```javascript
+export function createTimeline(jsPsych:JsPsych, options: { 
+  repetitions: number, instructions: boolean, debrief: boolean
+} ) {
+
+  var timeline = [];
+
+  timeline.push(timelineIntro(jsPsych, options.instructions));
+  timeline.push(timelineTest(jsPsych, options.repetitions));
+  timeline.push(timelineDebrief(jsPsych, options.debrief));
+
+  return timeline;
+}
 ```
 
-:::warning Signpost Other Ways to Factor Out Parameters
-:::
+Nice. Once we run a new build, we'll get a syntax error if `options` doesn't match the expected type, every time we call `createTimeline` in our HTML script. Unfortunately, we also can't call `createTimeline` without defining `options` at all. We could solve this be setting a fallback for `options` in the `createTimeline` functional signature, but this could end up redundant or inconsistent with our `timelineUnit` fallbacks. Even then, we wouldn't be able to handle cases where only some of the parameters are defined, but not others.
+
+To address these problems, let's take advantage of two other types available through Typescript: interfaces and Partials. 
+
+An `interface` will let us set the `options` object type outside of the argument definition, then call it back in like so:
+
+```javascript
+interface CreateTimelineOptions {
+  repetitions: number,
+  instructions: boolean,
+  debrief: boolean,
+}
+
+export function createTimeline(jsPsych:JsPsych, options: CreateTimelineOptions ) {
+```
+For anyone who's developed a jsPsych plugin before, this will look a little analogous to the [plugin info object](), albeit without any of the boilerplate syntax provided with our plugin template.
+
+In addition to cleaning up our code a little, we have set ourselves up to type `options` as a `Partial` of `interface CreateTimelineOptions`. A `Partial` will include any subset of the type defined in `createTimelineOptions`&mdash;even empty ones! At the same time, it will reject any objects with properties not included in `CreateTimelineOptions`.
+
+```javascript
+interface CreateTimelineOptions {
+  repetitions: number,
+  instructions: boolean,
+  debrief: boolean,
+}
+
+export function createTimeline(jsPsych:JsPsych, options: Partial<CreateTimelineOptions> = {} ) {
+```
+
+Now, on next build, we can run any range of complete or partial configurations through our `createTimeline` call in the example HTML.
+
+```javascript title="example/index.html"
+```
+
+We should keep this workflow in mind as we add new parameters. To restate the steps going forward, parameters are (1) introduced as arguments at the component scope, (2) implemented at that same scope, (3) provided a fallback value at scope's function signature, then (4) added to our `interface` type. 
 
 <details>
     <summary><strong>The complete code so far</strong></summary>
@@ -753,7 +849,7 @@ jsPsych.run([intro, test, debrief])
     import jsPsychHtmlKeyboardResponse from "@jspsych/plugin-html-keyboard-response";
     import jsPsychImageKeyboardResponse from "@jspsych/plugin-image-keyboard-response";
 
-    function timelineIntro() {
+    function timelineIntro(jsPsych: JsPsych, optionInstructions: boolean = true) {
       var intro_block = [];
 
       var welcome = {
@@ -766,28 +862,31 @@ jsPsych.run([intro, test, debrief])
       var instructions = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
-        <p>In this experiment, a circle will appear in the center
-        of the screen.</p><p>If the circle is <strong>blue</strong>,
-        press the letter F on the keyboard as fast as you can.</p>
-        <p>If the circle is <strong>orange</strong>, press the letter J
-        as fast as you can.</p>
-        <div style='width: 700px;'>
-        <div style='float: left;'><img src='../assets/blue.png'></img>
-        <p class='small'><strong>Press the F key</strong></p></div>
-        <div style='float: right;'><img src='../assets/orange.png'></img>
-        <p class='small'><strong>Press the J key</strong></p></div>
-        </div>
-        <p>Press any key to begin.</p>
+          <p>In this experiment, a circle will appear in the center
+          of the screen.</p><p>If the circle is <strong>blue</strong>,
+          press the letter F on the keyboard as fast as you can.</p>
+          <p>If the circle is <strong>orange</strong>, press the letter J
+          as fast as you can.</p>
+          <div style='width: 700px;'>
+          <div style='float: left;'><img src='../assets/blue.png'></img>
+          <p class='small'><strong>Press the F key</strong></p></div>
+          <div style='float: right;'><img src='../assets/orange.png'></img>
+          <p class='small'><strong>Press the J key</strong></p></div>
+          </div>
+          <p>Press any key to begin.</p>
         `,
         post_trial_gap: 2000
       };
-    
-      intro_block.push(instructions)
+
+      if(optionInstructions){
+        intro_block.push(instructions)
+        return intro_block
+      }
 
       return intro_block
     }
 
-    function timelineTest(jsPsych: JsPsych) {
+    function timelineTest(jsPsych: JsPsych, optionRepetitions: number = 5) {
       var test_stimuli = [
         { stimulus: "../assets/blue.png",  correct_response: 'f'},
         { stimulus: "../assets/orange.png",  correct_response: 'j'}
@@ -821,17 +920,18 @@ jsPsych.run([intro, test, debrief])
       var test_procedure = {
         timeline: [fixation, test],
         timeline_variables: test_stimuli,
-        repetitions: 5,
+        repetitions: optionRepetitions,
         randomize_order: true
       };
 
       return [test_procedure];
     }
 
-    function timelineDebrief(jsPsych: JsPsych) {
+    function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
       var debrief_block = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
+
           var trials = jsPsych.data.get().filter({task: 'response'});
           var correct_trials = trials.filter({correct: true});
           var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
@@ -840,18 +940,28 @@ jsPsych.run([intro, test, debrief])
           return `<p>You responded correctly on ${accuracy}% of the trials.</p>
             <p>Your average response time was ${rt}ms.</p>
             <p>Press any key to complete the experiment. Thank you!</p>`;
+          }
+        }
+
+        if(optionDebrief){
+          return debrief_block
+        } else {
+          return []
         }
       }
 
-      return debrief_block
+    interface CreateTimelineOptions {
+      repetitions: number,
+      instructions: boolean,
+      debrief: boolean,
     }
 
-    export function createTimeline(jsPsych:JsPsych) {
+    export function createTimeline(jsPsych:JsPsych, options: Partial<CreateTimelineOptions> = {} ) {
       var timeline = [];
 
-      timeline.push(timelineIntro(jsPsych))
-      timeline.push(timelineTest(jsPsych))
-      timeline.push(timelineDebrief(jsPsych))
+      timeline.push(timelineIntro(jsPsych, options.instructions))
+      timeline.push(timelineTest(jsPsych, options.repetitions))
+      timeline.push(timelineDebrief(jsPsych, options.debrief))
 
       return timeline
     }
@@ -868,7 +978,7 @@ jsPsych.run([intro, test, debrief])
 
 ## Setting up a util
 
-With the bigger conceptual portions of the experiment factored out as parameterized `timelineUnits`, we can now think about factoring out `util`, or essential helper functions that support more sophisticated, customizable behaviors. 
+With the bigger conceptual portions of the experiment factored out as parameterized `timelineUnits`, we can now think about factoring out `utils`, or essential helper functions that support more sophisticated, customizable behaviors. 
 
 To start thinking about `utils`, we're going to again default to the simplest case scenario, take what already exists in our code, and wrap it off into a separate function for export. A good place to start would be any of the functions returning a value to our trial objects. For example, let's look at the randomized fixation timing between stimuli.
 
@@ -886,7 +996,9 @@ To start thinking about `utils`, we're going to again default to the simplest ca
    };
 ```
 
-The logic in `trial_duration` samples 1 out of an array of integers, then sets that to the number of milliseconds passed before the fixation trial ends. As a `util`, however, we can factor this out into a separate function. For now, we'll have to give the function `jsPsych` as an argument, since the sampling logic is borrowed from a jsPsych module.
+The logic in `trial_duration` samples 1 out of an array of integers, then sets that to the number of milliseconds passed before the fixation trial ends. 
+
+As a `util`, we can factor this out into a separate function. We'll have to give the jsPsych instance as an initial argument, since the sampling logic is borrowed from our core modules.
 
 ```javascript
 function fixationDuration(jsPsych: JsPsych) {
@@ -894,7 +1006,7 @@ function fixationDuration(jsPsych: JsPsych) {
 }
 ```
 
-Then, let's call it in the original trial definition. Remember to return it as the output to an arrow function. Otherwise, our new `fixationDuration` util will only be evaluated once when our trial object is created, as opposed to everytime the trial object is instantiated in our timeline. 
+Now, let's call it in the definition for `fixation` in `timelineTest`. Remember to return `fixationDuration` as the output to an arrow function. Otherwise, our new `fixationDuration` util will only be evaluated once when our trial object is created, as opposed to everytime the trial object is instantiated in our timeline. 
 
 ```javascript
 var fixation = {
@@ -908,9 +1020,19 @@ var fixation = {
 };
 ```
 
-Why would we want to do this? Doesn't this just get us the same result with extra steps? Well, aside from keeping our logic separated and a little more legible, this gives us an opportunity to scope out more control over this functional behavior of the experiment. As developers, we can have more control over the logic that determines time spent on a fixation point, by working within `fixationDuration` in isolation. We can even add new arguments that affect the util's behavior. As behavioral researchers, we could implement new parameters om our HTML, or call `fixation, in order to incorporate a new variable into our experiments.
+Last, we should remember to add `fixationDuration` to our exports, under `utils`
 
-For instance, let's turn `fixationDuration` into a switch that, to start off, takes a second argument to distinguish between two cases: `"random"` and `"fixed"`. `"random"` cases can return the original randomization logic, while `"fixed"` returns a reliable 1000 milliseconds. We can also set the randomization logic as the default. 
+```javascript
+export const utils = {
+  fixationDuration
+}
+```
+
+Why would we want to do this at all? Doesn't this just get us the same result with extra steps? 
+
+Well, aside from keeping our logic separated and legible, this gives us an opportunity to scope out more control over experimental behavior. As developers, we can add more logic to affect time spent on a fixation point by working purely within `fixationDuration`. 
+
+For instance, let's turn `fixationDuration` into a switch that for starters takes a second argument to distinguish between two cases: `"random"` and `"fixed"`. `"random"` cases can return the original randomization logic, while `"fixed"` returns a reliable 1000 milliseconds. We can also set the randomization logic as the default. 
 
 ```javascript
 function fixationDuration(jsPsych: JsPsych, mode: "random" | "fixed" = "random") {
@@ -925,19 +1047,22 @@ function fixationDuration(jsPsych: JsPsych, mode: "random" | "fixed" = "random")
 }
 ```
 
-Once we do this, we need to make sure the `fixationDuration` call in the `fixation` trial definition includes our new argument. Let's also make sure the timelineUnit `timelineTest` takes this new argument, and that the new argument is provided when `timelineTest` is called in `createTimeline`, since this value is inherited all throughout our `src` file.
+Once we do this, we need to make sure the `fixationDuration` call in the `fixation` trial definition includes our new argument.
 
 ```javascript
 var fixation = {
   type: jsPsychHtmlKeyboardResponse,
   stimulus: '<div style="font-size:60px;">+</div>',
   choices: "NO_KEYS",
-  trial_duration: () => fixationDuration(jsPsych, 'fixed')
+  trial_duration: () => fixationDuration(jsPsych, optionFixationDuration)
   data: {
     task: 'fixation'
   }
 };
 ```
+
+Let's also make sure the timelineUnit `timelineTest` takes this new argument, and that the new argument is provided when `timelineTest` is called in `createTimeline`, since this value is inherited all throughout our `src` file.
+
 ```javascript
 function timelineTest(jsPsych: jsPsych, optionRepetitions, optionFixationDuration) {
 ```
@@ -947,6 +1072,48 @@ timeline.push(timelineTest(jsPsych, options.repetitions, options.fixationDuratio
 :::warning `options` Object and Interface
 Once the `options` object and interface are described above, please incorporate that into this "inheritance chain".
 :::
+
+Meanwhile, as behavioral researchers, we can reconfigure `fixationDuration` from our HTML, or even call `fixationDuration` separately, in order to incorporate a new variable into our experiments.
+
+```javascript title="examples/index.html"
+const jsPsych = initJsPsych({
+  on_finish: function() {
+    jsPsych.data.displayData();
+  }
+});
+
+const x_fixation = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: '<div style="font-size:60px;">X</div>',
+  choices: "NO_KEYS",
+  trial_duration: () => jsPsychTimelineReactionTimeDemo.utils.fixationDuration(jsPsych, "random"),
+  data: {
+    task: 'fixation'
+  }
+}
+
+var test = {
+  type: jsPsychImageKeyboardResponse,
+  stimulus: jsPsych.timelineVariable('stimulus'),
+  choices: ['f', 'j'],
+  data: {
+    task: 'response',
+    correct_response: jsPsych.timelineVariable('correct_response')
+  },
+  on_finish: function(data) {
+    data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+  }
+};
+
+var test_procedure = {
+  timeline: [x_fixation, test],
+  timeline_variables: test_stimuli,
+  repetitions: 5,
+  randomize_order: true
+}
+
+jsPsych.run([test_procedure])
+``` 
 
 Now, with our next build, we can go into `index.html` and use this new argument to adjust our `fixation` trial behavior on the fly, between `timelineTest` calls. 
 
