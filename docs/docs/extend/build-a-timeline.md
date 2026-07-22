@@ -1032,7 +1032,7 @@ Why would we want to do this at all? Doesn't this just get us the same result wi
 
 Well, aside from keeping our logic separated and legible, this gives us an opportunity to scope out more control over experimental behavior. As developers, we can add more logic to affect time spent on a fixation point by working purely within `fixationDuration`. 
 
-For instance, let's turn `fixationDuration` into a switch that for starters takes a second argument to distinguish between two cases: `"random"` and `"fixed"`. `"random"` cases can return the original randomization logic, while `"fixed"` returns a reliable 1000 milliseconds. We can also set the randomization logic as the default. 
+For instance, let's turn `fixationDuration` into a switch that for starters takes a second argument distinguishing between two cases: `"random"` and `"fixed"`. `"random"` returns the original randomization logic, while `"fixed"` returns a reliable 1000 milliseconds. We can also set the randomization logic as the default switch case, and `"random"` as the fallback in the function signature. 
 
 ```javascript
 function fixationDuration(jsPsych: JsPsych, mode: "random" | "fixed" = "random") {
@@ -1061,109 +1061,234 @@ var fixation = {
 };
 ```
 
-Let's also make sure the timelineUnit `timelineTest` takes this new argument, and that the new argument is provided when `timelineTest` is called in `createTimeline`, since this value is inherited all throughout our `src` file.
+Of course, we also need to make sure, despite our fallback, a user defined parameter is able to be inherited throughout our source code and reach the `fixationDuration` call in the `fixation` definition above. We'll add a corresponding argument to our `timelineTest` function signature and the `timelineTest` call in `createTimeline` 
 
-```javascript
-function timelineTest(jsPsych: jsPsych, optionRepetitions, optionFixationDuration) {
+```javascript title='timelineTest function signature'
+function timelineTest(jsPsych: jsPsych, optionRepetitions: number = 5, optionFixationDuration: "random" | "fixed" = "random") {
 ```
-```javascript
+```javascript title='timelineTest call in createTimeline'
 timeline.push(timelineTest(jsPsych, options.repetitions, options.fixationDuration));
 ```
-:::warning `options` Object and Interface
-Once the `options` object and interface are described above, please incorporate that into this "inheritance chain".
-:::
 
-Meanwhile, as behavioral researchers, we can reconfigure `fixationDuration` from our HTML, or even call `fixationDuration` separately, in order to incorporate a new variable into our experiments.
+As indicated at the end of the previous section, lets also make sure the `fixationDuration` parameter included in our `createTimelineOptions` type interface, with possible values limited to the two cases. 
 
-```javascript title="examples/index.html"
-const jsPsych = initJsPsych({
-  on_finish: function() {
-    jsPsych.data.displayData();
-  }
-});
-
-const x_fixation = {
-  type: jsPsychHtmlKeyboardResponse,
-  stimulus: '<div style="font-size:60px;">X</div>',
-  choices: "NO_KEYS",
-  trial_duration: () => jsPsychTimelineReactionTimeDemo.utils.fixationDuration(jsPsych, "random"),
-  data: {
-    task: 'fixation'
-  }
+```javascript
+interface CreateTimelineOptions {
+  repetitions: number,
+  instructions: boolean,
+  debrief: boolean,
+  fixationDuration: "random" | "fixed"
 }
+```
 
-var test = {
-  type: jsPsychImageKeyboardResponse,
-  stimulus: jsPsych.timelineVariable('stimulus'),
-  choices: ['f', 'j'],
-  data: {
-    task: 'response',
-    correct_response: jsPsych.timelineVariable('correct_response')
-  },
-  on_finish: function(data) {
-    data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
-  }
-};
+And as always, we should add the new `fixationDuration` util to our exports.
 
-var test_procedure = {
-  timeline: [x_fixation, test],
-  timeline_variables: test_stimuli,
-  repetitions: 5,
-  randomize_order: true
+```javascript
+export const utils = {
+  fixationDuration
 }
-
-jsPsych.run([test_procedure])
-``` 
+```
 
 Now, with our next build, we can go into `index.html` and use this new argument to adjust our `fixation` trial behavior on the fly, between `timelineTest` calls. 
 
-```javascript title='examples/index.html'
-const jsPsych = initJsPsych({
-  on_finish: function() {
-  jsPsych.data.displayData();
-}});
+```html title='examples/index.html'
+<script>
+  const jsPsych = initJsPsych({
+    on_finish: function() {
+    jsPsych.data.displayData();
+  }});
 
-const intro = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineIntro(jsPsych, false);
-const test1 = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5, "fixed");
-const test2 = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5, "random");
-const debrief = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineDebrief(jsPsych, true);
+  const intro = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineIntro(jsPsych, false);
+  const test1 = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5, "fixed");
+  const test2 = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5, "random");
+  const debrief = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineDebrief(jsPsych, true);
 
-jsPsych.run([intro, test1, test2, debrief])
+  jsPsych.run([intro, test1, test2, debrief])
+</script>
 ```
 
 We can also call `fixationDuration` separately. For example, maybe we, for whatever reason, define a trial object directly from the HTML that assigns the same functional output to `trial_duration`. We can call `fixationDuration` directly from the `utils` exports for this purpose.
 
-```javascript title='examples/index.html'
-const jsPsych = initJsPsych({
-  on_finish: function() {
-  jsPsych.data.displayData();
-}});
+```html title='examples/index.html'
+<script>
+  const jsPsych = initJsPsych({
+    on_finish: function() {
+    jsPsych.data.displayData();
+  }});
 
-const XFixation = {
-  type: jsPsychHtmlKeyboardResponse,
-  stimulus: '<div style="font-size:60px;">X</div>',
-  choices: "NO_KEYS",
-  trial_duration: () => jsPsychTimelineReactionTask.utils.fixationDuration(jsPsych, 'fixed'),
-  data: {
-    task: 'fixation'
+  const XFixation = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: '<div style="font-size:60px;">X</div>',
+    choices: "NO_KEYS",
+    trial_duration: () => jsPsychTimelineReactionTask.utils.fixationDuration(jsPsych, 'fixed'),
+    data: {
+      task: 'fixation'
+    }
   }
-}
 
-const intro = jsPsychTimelineReactionTask.timelineUnits.timelineIntro(jsPsych, false);
-const test1 = jsPsychTimelineReactionTask.timelineUnits.timelineTest(jsPsych, 5, "fixed");
-const test2 = jsPsychTimelineReactionTask.timelineUnits.timelineTest(jsPsych, 5, "random");
-const debrief = jsPsychTimelineReactionTask.timelineUnits.timelineDebrief(jsPsych, true);
+  const intro = jsPsychTimelineReactionTask.timelineUnits.timelineIntro(jsPsych, false);
+  const test1 = jsPsychTimelineReactionTask.timelineUnits.timelineTest(jsPsych, 5, "fixed");
+  const test2 = jsPsychTimelineReactionTask.timelineUnits.timelineTest(jsPsych, 5, "random");
+  const debrief = jsPsychTimelineReactionTask.timelineUnits.timelineDebrief(jsPsych, true);
 
-jsPsych.run([intro, XFixation, test1, test2, debrief])
+  jsPsych.run([intro, XFixation, test1, test2, debrief])
+</script>
 ```
 
 :::warning Script Tag
-Remember, for the above to work from the HTML, you need to add a script tag to the top of the HTML file that imports `jsPsychHtmlKeyboardReponse` via CDN. You're calling the plugin directly from the HTML now, so you need to have the type available in the HTML file.
+Remember, for the above to work from the HTML, you need to add a script tag to the HTML head that imports `jsPsychHtmlKeyboardReponse` via CDN. 
 :::
 
 Keep in mind that the point of these demonstrated `utils` is to convey the layer of abstraction permitted with a timeline package. `fixationDuration` may not be especially useful right now, at least not in the way we've implemented it so far, but it carves out new room for implementational flexibility. 
 
 Researchers working primarily from HTML files, without digging into our source, might find new unanticipated uses for any of our `util` exports. Developers, meanwhile, can always modify the util itself and give it new functionality, or refactor it with respect to our `timelineUnits`. By designing jsPsych experiments with a layer of exposed, modular access in the form `timelineUnits` and `utils`, we introduce a new point of feedback in the jsPsych research ecosystem&mdash;one that ultimately helps us build a better tool for everyone.
+
+<details>
+    <summary><strong>The complete code so far</strong></summary>
+    ```javascript
+    import { JsPsych } from "jspsych";
+    import jsPsychPreload from "@jspsych/plugin-preload";
+    import jsPsychHtmlKeyboardResponse from "@jspsych/plugin-html-keyboard-response";
+    import jsPsychImageKeyboardResponse from "@jspsych/plugin-image-keyboard-response";
+
+    function fixationDuration(jsPsych: JsPsych, mode: "random" | "fixed" = "random") {
+      switch (mode) {
+        case "fixed":
+          return 1000;
+        case "random":
+          return jsPsych.randomization.sampleWithoutReplacement([250, 500, 750, 1000, 1250, 1500, 1750, 2000], 1)[0];
+        default:
+          return jsPsych.randomization.sampleWithoutReplacement([250, 500, 750, 1000, 1250, 1500, 1750, 2000], 1)[0];
+      }
+    }
+
+    function timelineIntro(jsPsych: JsPsych, optionInstructions: boolean = true, fixationDuration: boolean = "random") {
+      var intro_block = [];
+
+      var welcome = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: "Welcome to the experiment. Press any key to begin."
+      };
+
+      intro_block.push(welcome)
+
+      var instructions = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: `
+          <p>In this experiment, a circle will appear in the center
+          of the screen.</p><p>If the circle is <strong>blue</strong>,
+          press the letter F on the keyboard as fast as you can.</p>
+          <p>If the circle is <strong>orange</strong>, press the letter J
+          as fast as you can.</p>
+          <div style='width: 700px;'>
+          <div style='float: left;'><img src='../assets/blue.png'></img>
+          <p class='small'><strong>Press the F key</strong></p></div>
+          <div style='float: right;'><img src='../assets/orange.png'></img>
+          <p class='small'><strong>Press the J key</strong></p></div>
+          </div>
+          <p>Press any key to begin.</p>
+        `,
+        post_trial_gap: 2000
+      };
+
+      if(optionInstructions){
+        intro_block.push(instructions)
+        return intro_block
+      }
+
+      return intro_block
+    }
+
+    function timelineTest(jsPsych: JsPsych, optionRepetitions: number = 5, optionFixationDuration: "random" | "fixed" = "random") {
+      var test_stimuli = [
+        { stimulus: "../assets/blue.png",  correct_response: 'f'},
+        { stimulus: "../assets/orange.png",  correct_response: 'j'}
+      ];
+
+      var fixation = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: '<div style="font-size:60px;">+</div>',
+        choices: "NO_KEYS",
+        trial_duration: () => fixationDuration(optionFixationDuration),
+        data: {
+          task: 'fixation'
+        }
+      };
+
+      var test = {
+        type: jsPsychImageKeyboardResponse,
+        stimulus: jsPsych.timelineVariable('stimulus'),
+        choices: ['f', 'j'],
+        data: {
+          task: 'response',
+          correct_response: jsPsych.timelineVariable('correct_response')
+        },
+        on_finish: function(data) {
+          data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+        }
+      };
+
+      var test_procedure = {
+        timeline: [fixation, test],
+        timeline_variables: test_stimuli,
+        repetitions: optionRepetitions,
+        randomize_order: true
+      };
+
+      return [test_procedure];
+    }
+
+    function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
+      var debrief_block = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: function() {
+
+          var trials = jsPsych.data.get().filter({task: 'response'});
+          var correct_trials = trials.filter({correct: true});
+          var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+          var rt = Math.round(correct_trials.select('rt').mean());
+
+          return `<p>You responded correctly on ${accuracy}% of the trials.</p>
+            <p>Your average response time was ${rt}ms.</p>
+            <p>Press any key to complete the experiment. Thank you!</p>`;
+        }
+      }
+
+      if(optionDebrief){
+        return debrief_block
+      } else {
+        return []
+      }
+    }
+
+    interface CreateTimelineOptions {
+      repetitions: number,
+      instructions: boolean,
+      debrief: boolean,
+      fixationDuration: "random" | "fixed"
+    }
+
+    export function createTimeline(jsPsych:JsPsych, options: Partial<CreateTimelineOptions> = {} ) {
+      var timeline = [];
+
+      timeline.push(timelineIntro(jsPsych, options.instructions, options.fixationDuration))
+      timeline.push(timelineTest(jsPsych, options.repetitions))
+      timeline.push(timelineDebrief(jsPsych, options.debrief))
+
+      return timeline
+    }
+
+    export const timelineUnits = {
+      timelineIntro,
+      timelineTest,
+      timelineDebrief
+    }
+
+    export const utils = {
+      fixationDuration
+    }
+    ```
+</details>
 
 ## Testing exports
 ...
