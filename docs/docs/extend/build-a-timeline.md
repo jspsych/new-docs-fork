@@ -150,11 +150,11 @@ export function createTimeline(jsPsych:JsPsych) {
     };
     timeline.push(debrief_block);
 
-    return timeline
+    return { timeline: timeline }
 }
 ```
 
-Notice how this code includes everything except `initjsPsych` and `jsPsych.run`. This is because `createTimeline` only outputs the complete timeline array and nothing else. It is not responsible for declaring the jsPsych instance that actually runs the experiment; that still happens in the HTML that imports and calls `createTimeline`!
+Notice how this code includes everything except `initjsPsych` and `jsPsych.run`. This is because `createTimeline` only outputs the complete `timeline` object and nothing else. It is not responsible for declaring the jsPsych instance that actually runs the experiment; that still happens in the HTML that imports and calls `createTimeline`!
 
 At the same time, `createTimeline` requires a jsPsych instance as an argument, since it still references core jsPsych methods to define trial parameters. 
 
@@ -276,7 +276,7 @@ jsPsych.run(timeline)
       };
       timeline.push(debrief_block);
 
-      return timeline;
+      return { timeline: timeline };
     }
 
     export const timelineUnits = {
@@ -424,7 +424,7 @@ export function createTimeline(jsPsych:JsPsych) {
   timeline.push(timelineTest(jsPsych))
   timeline.push(timelineDebrief(jsPsych))
 
-  return timeline
+  return { timeline: timeline }
 }
 ```
 
@@ -570,7 +570,7 @@ With our `timelineUnits` bracketed out and exported, anyone could isolate, rearr
       timeline.push(timelineTest(jsPsych))
       timeline.push(timelineDebrief(jsPsych))
 
-      return timeline
+      return { timeline: timeline }
     }
 
     export const timelineUnits = {
@@ -780,7 +780,7 @@ export function createTimeline(jsPsych:JsPsych, options ) {
   timeline.push(timelineTest(jsPsych, options.repetitions));
   timeline.push(timelineDebrief(jsPsych, options.debrief));
 
-  return timeline;
+  return { timeline: timeline };
 }
 ```
 
@@ -801,7 +801,7 @@ export function createTimeline(jsPsych:JsPsych, options: {
   timeline.push(timelineTest(jsPsych, options.repetitions));
   timeline.push(timelineDebrief(jsPsych, options.debrief));
 
-  return timeline;
+  return { timeline: timeline };
 }
 ```
 
@@ -963,7 +963,7 @@ We should keep this workflow in mind as we add new parameters. To restate the st
       timeline.push(timelineTest(jsPsych, options.repetitions))
       timeline.push(timelineDebrief(jsPsych, options.debrief))
 
-      return timeline
+      return { timeline: timeline }
     }
 
     export const timelineUnits = {
@@ -1275,7 +1275,7 @@ Researchers working primarily from HTML files, without digging into our source, 
       timeline.push(timelineTest(jsPsych, options.repetitions))
       timeline.push(timelineDebrief(jsPsych, options.debrief))
 
-      return timeline
+      return { timeline: timeline }
     }
 
     export const timelineUnits = {
