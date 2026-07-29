@@ -30,8 +30,8 @@ This guide still needs to be written. The structure below outlines what it shoul
 This tutorial will walk through translating the same basic reaction time task from the demo experiment into a package for jspsych-timelines. This simple demonstration will highlight key open-science principles behind what makes a distributable experimental task, including:
 
 - Setting up the developer environment with npm
+- Setting up the 'createTimeline' export
 - Blocking out timelineUnits and utils as exportable components
-- Building the .createTimeline() export
 - Designing parameters for configuring versions of the same task
 - Testing builds
 - Preparing documentation
@@ -41,12 +41,12 @@ This tutorial will walk through translating the same basic reaction time task fr
 
 ## Overview exports from index.ts
 
-`index.js` exports three principle kinds of components, all of which are functions. 
-- `.createTimeline()`:
-- `timelineUnits`:
-- `util`:
+`index.js` exports three principle kinds of components. 
+- `createTimeline`: A function that takes each parameter, incorporates every export, and outputs a jsPsych timeline object.
+- `timelineUnits`: An object that includes each part of the larger timeline, broken down into conceptual chunks, typically but not always written as functions.
+- `util`: An object containing smaller logical components that support `createTimeline` or `timelineUnits`, like helper functions or type definitions.
 
-## Setting Up `createTimeline()`
+## Setting Up `createTimeline`
 
 Since this is the primary export for our package, we can think of this as the "hub" where all of our exports come together to generate a complete, fully configured task. This single export will process any parameters exposed to users and referenced throughout our source code. `createTimeline` will also depend on any timelineUnits and utils we eventually factor out over the course of this tutorial. It's the glue holding our package together, so we'll start here.
 
