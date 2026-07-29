@@ -288,12 +288,16 @@ jsPsych.run(timeline)
 
 ## Setting up a timelineUnit
 
+:::warning Draft Note: Move this up top and rewrite
+"With our `timelineUnits` bracketed out and exported, anyone could isolate, rearrange, or reconfigure any one of the pieces of our original experiment. The next section will expand on that last point and go into parametrizing units for configurability."
+:::
+
 Now that we understand `createTimeline` as a consistent end product of our source code, we can start to carve it up into `timelineUnits`. To restate, `timelineUnits` are broken down, conceptual pieces of our experiment timeline&mdash;that is, of the script executed in `createTimeline`. Each `timelineUnit` can be typed as an array of `TimelineNodes`. On first glance, we can split the script in `createTimeline` into three main chunks:
 - An introduction, made up of the `welcome` and `instructions` nodes
 - The `test_procedure`, alternating between `fixation` and `test` nodes
 - The `debrief` consisting of a single node, with a digest of the participant's performance
 
-:::warning Needs hands-on review
+:::warning Draft Note: Needs hands-on review
 Everything past this point must be implementationally verified by a few people willing to go through each step, noting build-breaking errors along the way. 
 :::
 
@@ -303,7 +307,7 @@ The most straightforward way to block out our `timelineUnits` is by wrapping eac
 In the event that a `timelineUnit` or `util` references core jsPsych methods, each export should take the running jsPsych instance as an argument by default. Otherwise, those methods will not be appropriately defined. We explore other ways to factor out references to the jPsych instance in later sections of this tutorial (pending).
 :::
 
-:::warning Include Pre-Load
+:::warning Draft Note: Include Pre-Load
 Current unit breakdown below requires pre-load Node. Must decide if this will be a separate unit or factored into one defined below.
 :::
 
@@ -444,7 +448,7 @@ export const timelineUnits = {
 
 After running another build, we can now call each `timelineUnit` as well from `examples/index.html`, separately.
 
-:::warning Introduce `examples/index.html`
+:::warning Draft Note: Introduce `examples/index.html`
 Put something in the overview, under the first header, that explains `examples/index.html`
 :::
 
