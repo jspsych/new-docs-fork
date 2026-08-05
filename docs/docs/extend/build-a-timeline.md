@@ -456,7 +456,7 @@ After running another build, we can now call each `timelineUnit` as well from `e
 Put something in the overview, under the first header, that explains `examples/index.html`
 :::
 
-```html title='examples/index.html'
+```html title="examples/index.html"
 <script>
  const jsPsych = initJsPsych();
 
@@ -756,7 +756,7 @@ These fallbacks allow use to successfully call each `timelineUnit` without defin
 
 Now, on next build, we'll be able to run these `timelineUnits` from `index.html` while configuring each unit's behavior with the second argument.
 
-```html title='examples/index.html'
+```html title="examples/index.html"
 <script>
   const jsPsych = initJsPsych({
     on_finish: function() {
@@ -844,7 +844,7 @@ export function createTimeline(jsPsych:JsPsych, options: Partial<CreateTimelineO
 
 Now, on next build, we can run any range of complete or partial configurations through our `createTimeline` call in the example HTML.
 
-```javascript title="example/index.html"
+```html title="examples/index.html"
 ```
 
 We should keep this workflow in mind as we add new parameters. To restate the steps going forward, parameters are (1) introduced as arguments at the component scope, (2) implemented at that same scope, (3) provided a fallback value at scope's function signature, then (4) added to our `interface` type. 
@@ -1085,6 +1085,9 @@ Users could also call `getPerformance` from their HTML like any other export, so
 ```javascript title="my cool example in examples/index.html"
 
 ```
+:::warning Script Tag
+Remember, for the above to work from the HTML, you need to add a script tag to the HTML head that imports `jsPsychHtmlKeyboardReponse` via CDN. 
+:::
 
 Factoring out `getPerformance` as a `util` also helps us keep our code legible while we write more robust outputs. 
 
@@ -1120,7 +1123,7 @@ function getPerformance(jsPsych: JsPsych) {
 }
 ```
 
-We could then reference these outputs again in the original `timelineDebrief` context, with more HTML strings written to interpolate those values.
+We could then reference these outputs again in the original `timelineDebrief` context, with the returned HTML string expanded to interpolate those values.
 
 ```javascript
 function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
@@ -1147,73 +1150,40 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
 }
 ```
 
-Of course, now we're running into a different problem. The return value is handling a lot of hardcoded string interpolation. Here, we might then write out yet another util, `getPerformanceHTML`, to handle that. 
-
-Let's set this util up so that an object contains an interpolating string for each metric, then appends each to the complete HTML string so long as it's present in the performance metrics object, `performance_data`. Presumably, `performance_data` will be whatever output comes from `getPerformance`.
+Of course, our user may not always want to return the same stimulus HTML, with all of the metrics available from `getPerformance`. We can afford the user some flexibility when customizing their debrief by writing out a `customDebrief` argument. Let's type this argument as a function and set a fallback that takes `performance_data` and returns the original string.
 
 ```javascript
-function getPerformanceHTML(performance_data){
-  const performanceHTML = {
-    accuracy: `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>`,
-    rt: `<p>Your average response time was ${performance_data.rt}ms.</p>`,
-    blue_accuracy: `<p>You responded correctly on ${performance_data.blue_accuracy}% of the blue trials.</p>`,
-    blue_rt: `<p>Your average response time for blue trials was ${performance_data.blue_rt}ms.</p>`,
-    orange_accuracy: `<p>You responded correctly on ${performance_data.orange_accuracy}% of the orange trials.</p>`,
-    orange_rt: `<p>Your average response time for orange trials was ${performance_data.orange_rt}ms.</p>`
+function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
+  customDebrief: Function = function(performance_data) {
+    return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
+      <p>Your average response time was ${performance_data.rt}ms.</p>
+      <p>Press any key to complete the experiment. Thank you!</p>`
+  }
+) {
+  var debrief_block = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: () => {
+      var performance_data = getPerformance(jsPsych)
+
+      return customDebrief(performance_data);
+    }
   }
 
-  var html = ""
-
-  for (const [key] of Object.entries(performance_data)) {
-    html += performanceHTML[key] || "";
+  if(optionDebrief){
+    return debrief_block
+  } else {
+    return []
   }
-
-  const endHTML = `<p>Press any key to complete the experiment. Thank you!</p>`
-  html += endHTML
-
-  return html
 }
 ```
+
 :::tip Typing `performance_data`
 We could, of course, take advantage of Typescript to make sure that `performance_data` is always structured like a `getPerformance` output. This would involve similar syntax to how we defined `options` first as the `CreateTimelineOptions` interface, then typed the `options` argument in `createTimeline` as `<Partial>CreateTimelineOptions`. For the sake of simplicity, we won't go over this in the tutorial, but it's good to keep in mind.
 :::
 
+Once again, we can confirm that `createTimeline` still works the same by running another build. Users can also influence the debrief HTML by reading their own `customDebrief` function as an argument to the debrief `timelineUnit`.
 
-:::warning Draft Note: Old fixation util
-Everything here and below is the old fixationDuration util draft
-:::
-
-Of course, we also need to make sure, despite our fallback, a user defined parameter is able to be inherited throughout our source code and reach the `fixationDuration` call in the `fixation` definition above. We'll add a corresponding argument to our `timelineTest` function signature and the `timelineTest` call in `createTimeline` 
-
-```javascript title='timelineTest function signature'
-function timelineTest(jsPsych: jsPsych, optionRepetitions: number = 5, optionFixationDuration: "random" | "fixed" = "random") {
-```
-```javascript title='timelineTest call in createTimeline'
-timeline.push(timelineTest(jsPsych, options.repetitions, options.fixationDuration));
-```
-
-As indicated at the end of the previous section, lets also make sure the `fixationDuration` parameter included in our `createTimelineOptions` type interface, with possible values limited to the two cases. 
-
-```javascript
-interface CreateTimelineOptions {
-  repetitions: number,
-  instructions: boolean,
-  debrief: boolean,
-  fixationDuration: "random" | "fixed"
-}
-```
-
-And as always, we should add the new `fixationDuration` util to our exports.
-
-```javascript
-export const utils = {
-  fixationDuration
-}
-```
-
-Now, with our next build, we can go into `index.html` and use this new argument to adjust our `fixation` trial behavior on the fly, between `timelineTest` calls. 
-
-```html title='examples/index.html'
+```html title="examples/index.html"
 <script>
   const jsPsych = initJsPsych({
     on_finish: function() {
@@ -1221,49 +1191,70 @@ Now, with our next build, we can go into `index.html` and use this new argument 
   }});
 
   const intro = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineIntro(jsPsych, false);
-  const test1 = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5, "fixed");
-  const test2 = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5, "random");
-  const debrief = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineDebrief(jsPsych, true);
+  const test = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5);
+  const debrief = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineDebrief(
+    jsPsych, true, 
+    function(performance_data){
+      return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
+        <p>Your average response time was ${performance_data.rt}ms.</p>
+        <p>You responded correctly on ${performance_data.blue_accuracy}% of the blue trials.</p>
+        <p>Your average response time for blue trials was ${performance_data.blue_rt}ms.</p>
+        <p>You responded correctly on ${performance_data.orange_accuracy}% of the orange trials.</p>
+        <p>Your average response time for orange trials was ${performance_data.orange_rt}ms.</p>
+        <p>Press any key to complete the experiment. Thank you!</p>`
+    });
 
-  jsPsych.run([intro, test1, test2, debrief])
+  jsPsych.run([intro, test, debrief])
 </script>
 ```
 
-We can also call `fixationDuration` separately. For example, maybe we, for whatever reason, define a trial object directly from the HTML that assigns the same functional output to `trial_duration`. We can call `fixationDuration` directly from the `utils` exports for this purpose.
+Of course, if we want to actually expose this argument to users calling `createTimeline`, we'll need to both update our `CreateTimelineOptions` interface and include the argument in the `timelineDebrief` call in `createTimeline`.
 
-```html title='examples/index.html'
+```javascript
+interface CreateTimelineOptions {
+  repetitions: number,
+  instructions: boolean,
+  debrief: boolean,
+  customDebrief: Function
+}
+```
+```javascript title="timelineDebrief call in createTimeline"
+timeline.push(timelineDebrief(jsPsych, options.debrief, options.customDebrief));
+```
+
+Now, on yet another build, we can go into `index.html` and use this new argument to customize our debrief by changing our `createTimeline` configuration. 
+
+```html title="examples/index.html"
 <script>
   const jsPsych = initJsPsych({
     on_finish: function() {
     jsPsych.data.displayData();
   }});
 
-  const XFixation = {
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: '<div style="font-size:60px;">X</div>',
-    choices: "NO_KEYS",
-    trial_duration: () => jsPsychTimelineReactionTask.utils.fixationDuration(jsPsych, 'fixed'),
-    data: {
-      task: 'fixation'
+  const options = {
+    repetitions: 5,
+    instructions: true,
+    debrief: true,
+    customDebrief: function(performance_data){
+      return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
+        <p>Your average response time was ${performance_data.rt}ms.</p>
+        <p>You responded correctly on ${performance_data.blue_accuracy}% of the blue trials.</p>
+        <p>Your average response time for blue trials was ${performance_data.blue_rt}ms.</p>
+        <p>You responded correctly on ${performance_data.orange_accuracy}% of the orange trials.</p>
+        <p>Your average response time for orange trials was ${performance_data.orange_rt}ms.</p>
+        <p>Press any key to complete the experiment. Thank you!</p>`
     }
   }
 
-  const intro = jsPsychTimelineReactionTask.timelineUnits.timelineIntro(jsPsych, false);
-  const test1 = jsPsychTimelineReactionTask.timelineUnits.timelineTest(jsPsych, 5, "fixed");
-  const test2 = jsPsychTimelineReactionTask.timelineUnits.timelineTest(jsPsych, 5, "random");
-  const debrief = jsPsychTimelineReactionTask.timelineUnits.timelineDebrief(jsPsych, true);
+  const timeline = jsPsychTimelineReactionTimeDemo.createTimeline(jsPsych, options);
 
-  jsPsych.run([intro, XFixation, test1, test2, debrief])
+  jsPsych.run(timeline)
 </script>
 ```
 
-:::warning Script Tag
-Remember, for the above to work from the HTML, you need to add a script tag to the HTML head that imports `jsPsychHtmlKeyboardReponse` via CDN. 
+:::warning Draft Note: Consider Rewriting
+"Researchers working primarily from HTML files, without digging into our source, might find new unanticipated uses for any of our `util` exports. Developers, meanwhile, can always modify the util itself and give it new functionality, or refactor it with respect to our `timelineUnits`. By designing jsPsych experiments with a layer of exposed, modular access in the form `timelineUnits` and `utils`, we introduce a new point of feedback in the jsPsych research ecosystem&mdash;one that ultimately helps us build a better tool for everyone."
 :::
-
-Keep in mind that the point of these demonstrated `utils` is to convey the layer of abstraction permitted with a timeline package. `fixationDuration` may not be especially useful right now, at least not in the way we've implemented it so far, but it carves out new room for implementational flexibility. 
-
-Researchers working primarily from HTML files, without digging into our source, might find new unanticipated uses for any of our `util` exports. Developers, meanwhile, can always modify the util itself and give it new functionality, or refactor it with respect to our `timelineUnits`. By designing jsPsych experiments with a layer of exposed, modular access in the form `timelineUnits` and `utils`, we introduce a new point of feedback in the jsPsych research ecosystem&mdash;one that ultimately helps us build a better tool for everyone.
 
 <details>
     <summary><strong>The complete code so far</strong></summary>
@@ -1273,15 +1264,32 @@ Researchers working primarily from HTML files, without digging into our source, 
     import jsPsychHtmlKeyboardResponse from "@jspsych/plugin-html-keyboard-response";
     import jsPsychImageKeyboardResponse from "@jspsych/plugin-image-keyboard-response";
 
-    function fixationDuration(jsPsych: JsPsych, mode: "random" | "fixed" = "random") {
-      switch (mode) {
-        case "fixed":
-          return 1000;
-        case "random":
-          return jsPsych.randomization.sampleWithoutReplacement([250, 500, 750, 1000, 1250, 1500, 1750, 2000], 1)[0];
-        default:
-          return jsPsych.randomization.sampleWithoutReplacement([250, 500, 750, 1000, 1250, 1500, 1750, 2000], 1)[0];
-      }
+    function getPerformance(jsPsych: JsPsych) {
+      var trials = jsPsych.data.get().filter({task: 'response'});
+      var correct_trials = trials.filter({correct: true});
+
+      var blue_trials = trials.filter({correct_response: 'f'});
+      var correct_blue_trials = blue_trials.filter({correct: true});
+
+      var orange_trials = trials.filter({correct_response: 'j'});
+      var correct_orange_trials = orange_trials.filter({correct: true});
+
+      var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+      var blue_accuracy = Math.round(correct_blue_trials.count() / blue_trials.count() * 100);
+      var orange_accuracy = Math.round(correct_orange_trials.count() / orange_trials.count() * 100);
+
+      var rt = Math.round(correct_trials.select('rt').mean());
+      var blue_rt = Math.round(correct_blue_trials.select('rt').mean());
+      var orange_rt = Math.round(correct_orange_trials.select('rt').mean());
+
+      return {
+        accuracy: accuracy, 
+        rt: rt, 
+        blue_accuracy: blue_accuracy,
+        blue_rt: blue_rt,
+        orange_accuracy: orange_accuracy,
+        orange_rt: orange_rt,
+      };
     }
 
     function timelineIntro(jsPsych: JsPsych, optionInstructions: boolean = true, fixationDuration: boolean = "random") {
@@ -1321,7 +1329,7 @@ Researchers working primarily from HTML files, without digging into our source, 
       return intro_block
     }
 
-    function timelineTest(jsPsych: JsPsych, optionRepetitions: number = 5, optionFixationDuration: "random" | "fixed" = "random") {
+    function timelineTest(jsPsych: JsPsych, optionRepetitions: number = 5) {
       var test_stimuli = [
         { stimulus: "../assets/blue.png",  correct_response: 'f'},
         { stimulus: "../assets/orange.png",  correct_response: 'j'}
@@ -1360,19 +1368,19 @@ Researchers working primarily from HTML files, without digging into our source, 
       return [test_procedure];
     }
 
-    function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
+    function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
+      customDebrief: Function = function(performance_data) {
+        return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
+          <p>Your average response time was ${performance_data.rt}ms.</p>
+          <p>Press any key to complete the experiment. Thank you!</p>`
+      }
+    ) {
       var debrief_block = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
+          const performance_data = getPerformance(jsPsych)
 
-          var trials = jsPsych.data.get().filter({task: 'response'});
-          var correct_trials = trials.filter({correct: true});
-          var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-          var rt = Math.round(correct_trials.select('rt').mean());
-
-          return `<p>You responded correctly on ${accuracy}% of the trials.</p>
-            <p>Your average response time was ${rt}ms.</p>
-            <p>Press any key to complete the experiment. Thank you!</p>`;
+          return customDebrief(performance_data);
         }
       }
 
@@ -1387,15 +1395,15 @@ Researchers working primarily from HTML files, without digging into our source, 
       repetitions: number,
       instructions: boolean,
       debrief: boolean,
-      fixationDuration: "random" | "fixed"
+      customDebrief: Function
     }
 
     export function createTimeline(jsPsych:JsPsych, options: Partial<CreateTimelineOptions> = {} ) {
       var timeline = [];
 
-      timeline.push(timelineIntro(jsPsych, options.instructions, options.fixationDuration))
+      timeline.push(timelineIntro(jsPsych, options.instructions))
       timeline.push(timelineTest(jsPsych, options.repetitions))
-      timeline.push(timelineDebrief(jsPsych, options.debrief))
+      timeline.push(timelineDebrief(jsPsych, options.debrief, options.customDebrief))
 
       return { timeline: timeline }
     }
@@ -1407,7 +1415,7 @@ Researchers working primarily from HTML files, without digging into our source, 
     }
 
     export const utils = {
-      fixationDuration
+      getPerformance
     }
     ```
 </details>
