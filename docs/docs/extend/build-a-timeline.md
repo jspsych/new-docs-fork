@@ -454,9 +454,9 @@ Put something in the overview, under the first header, that explains `examples/i
 <script>
  const jsPsych = initJsPsych();
 
- const intro = jsPsychTimelineReactionTimeDemo.timelineUnit.timelineIntro(jsPsych);
- const test = jsPsychTimelineReactionTimeDemo.timelineUnit.timelineTest(jsPsych);
- const debrief = jsPsychTimelineReactionTimeDemo.timelineUnit.timelineDebrief(jsPsych);
+ const intro = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineIntro(jsPsych);
+ const test = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych);
+ const debrief = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineDebrief(jsPsych);
 
  jsPsych.run([intro, test, debrief])
 </script>
@@ -612,10 +612,10 @@ We'll tackle parametrizing our timeline package in two steps: first by implement
 
 Let's first go through each `timelineUnit` and implement the parameters that pertain to them&mdash;that is, `repetitions` in `timelineTest`, `instructions` in `timelineIntro`, and `debrief` in `timelineDebrief`. 
 
-We'll start with `repetitions`, since its first implementation will be a simple matter of swapping out a hardcoded value. We can do this by adding a second argument for `optionRepetitions`, then reading it to the definition of `test_procedure`.
+We'll start with `repetitions`, since its first implementation will be a simple matter of swapping out a hardcoded value. We can do this by adding a second argument for `option_repetitions`, then reading it to the definition of `test_procedure`.
 
 ```javascript
-function timelineTest(jsPsych: JsPsych, optionRepetitions: number) {
+function timelineTest(jsPsych: JsPsych, option_repetitions: number) {
    var test_stimuli = [
      { stimulus: "../blue.png",  correct_response: 'f'},
      { stimulus: "../orange.png",  correct_response: 'j'}
@@ -649,7 +649,7 @@ function timelineTest(jsPsych: JsPsych, optionRepetitions: number) {
    var test_procedure = {
      timeline: [fixation, test],
      timeline_variables: test_stimuli,
-     repetitions: optionRepetitions,
+     repetitions: option_repetitions,
      randomize_order: true
    };
 
@@ -657,10 +657,10 @@ function timelineTest(jsPsych: JsPsych, optionRepetitions: number) {
 }
 ```
 
-The other parameters will need a little additional logic, since they affect whether whole trials are included on execution. For `instructions`, we can write an `if`-statement that depends on an `optionInstructions` argument, then wrap the `intro_block.push(instructions)` call.
+The other parameters will need a little additional logic, since they affect whether whole trials are included on execution. For `instructions`, we can write an `if`-statement that depends on an `option_instructions` argument, then wrap the `intro_block.push(instructions)` call.
 
 ```javascript
-function timelineIntro(jsPsych: JsPsych, optionInstructions) {
+function timelineIntro(jsPsych: JsPsych, option_instructions) {
    var intro_block = [];
 
    var welcome = {
@@ -689,7 +689,7 @@ function timelineIntro(jsPsych: JsPsych, optionInstructions) {
     post_trial_gap: 2000
    };
 
-   if(optionInstructions){
+   if(option_instructions){
     intro_block.push(instructions)
     return intro_block
    }
@@ -698,37 +698,25 @@ function timelineIntro(jsPsych: JsPsych, optionInstructions) {
 }
 ```
 
-We can do much the same thing with `debrief`. Let's wrap `return debrief_block` in an `if`-statement that evaluates an `optionDebrief` argument. Otherwise, `timelineDebrief` will now return an empty array.
+We can do much the same thing with `debrief`, albeit at the `createTimeline` scope since `timelineDebrief` only returns a single debrief trial anyway. Let's wrap `return debrief_block` in an `if`-statement that evaluates an `option_debrief` argument. Otherwise, `timelineDebrief` will now return an empty array.
 
 ```javascript
-function timelineDebrief(jsPsych: JsPsych, optionDebrief) {
+export function createTimeline(jsPsych:JsPsych) {
+      var timeline = [];
 
-  var debrief_block = {
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: function() {
+      timeline.push(timelineIntro(jsPsych))
+      timeline.push(timelineTest(jsPsych))
 
-      var trials = jsPsych.data.get().filter({task: 'response'});
-      var correct_trials = trials.filter({correct: true});
-      var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
-      var rt = Math.round(correct_trials.select('rt').mean());
+      if(option_debrief){
+        timeline.push(timelineDebrief(jsPsych))
+      }
 
-      return `<p>You responded correctly on ${accuracy}% of the trials.</p>
-        <p>Your average response time was ${rt}ms.</p>
-        <p>Press any key to complete the experiment. Thank you!</p>`;
-
+      return { timeline: timeline }
     }
-  }
-
-  if(optionDebrief){
-    return debrief_block
-  } else {
-    return []
-  }
-}
 ```
 
 :::info Alternative Implementation: Conditional Definition Instead Of Conditional Push
-For `instructions`, we can write a basic implementation by wrapping our definition of `var instructions` in an `if`-statement. We'll define `instructions` as a trial object in the case that `optionInstructions` is true. Otherwise, we define `var instructions` as an empty array, since this implementation assumes an `instructions` variable will be pushed to the `intro_block` array either way. We'll also add `optionInstructions` as an argument for the `timelineIntro` function.
+For `instructions`, we can write a basic implementation by wrapping our definition of `var instructions` in an `if`-statement. We'll define `instructions` as a trial object in the case that `option_instructions` is true. Otherwise, we define `var instructions` as an empty array, since this implementation assumes an `instructions` variable will be pushed to the `intro_block` array either way. We'll also add `option_instructions` as an argument for the `timelineIntro` function.
 
 :::warning Bug: Typing
 Need to declare `instructions` as a variable with type array or object before you can run the parametrized unit. Same with `debrief`.
@@ -737,18 +725,18 @@ Need to declare `instructions` as a variable with type array or object before yo
 With our implementational logic figured out, we should set a fallback for each of our second arguments. We can accomplish that in the functional signature of each `timelineUnit`, like so:
 
 ```javascript
-function timelineTest(jsPsych: JsPsych, optionRepetitions: number = 5)
+function timelineTest(jsPsych: JsPsych, option_repetitions: number = 5)
 ```
 ```javascript
-function timelineIntro(jsPsych: JsPsych, optionInstructions: boolean = true)
+function timelineIntro(jsPsych: JsPsych, option_instructions: boolean = true)
 ```
 ```javascript
-function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true)
+export function createTimeline(jsPsych: JsPsych, option_debrief: boolean = true)
 ```
 
-These fallbacks allow us to successfully call each `timelineUnit` without defining the second argument. Instead, each `timelineUnit` will reference the fallback by default. This is how we set default parameters as if the timeline were a plugin. This is also how we keep our package build from breaking, insofar as none of the `timelineUnit` calls in `createTimeline` define these parameter arguments&mdash;at least not yet.
+These fallbacks allow us to successfully call each `timelineTest`, `timelineIntro`, and `createTimeline` without defining the second argument. This is also a way for us to set default parameters as if the timeline were a plugin. This is also how we keep our package build from breaking, insofar as none of the `timelineUnit` calls in `createTimeline` define these parameter arguments&mdash;at least not yet.
 
-Now, on next build, we'll be able to run these `timelineUnits` from `index.html` while configuring each unit's behavior with the second argument.
+Now, on next build, we'll be able to run `timelineTest`, `timelineIntro`, and `createTimeline` from `index.html` while configuring each unit's behavior with the second argument.
 
 ```html title="examples/index.html"
 <script>
@@ -759,13 +747,11 @@ Now, on next build, we'll be able to run these `timelineUnits` from `index.html`
 
   const intro = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineIntro(jsPsych, false);
   const test = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineTest(jsPsych, 5);
-  const debrief = jsPsychTimelineReactionTimeDemo.timelineUnits.timelineDebrief(jsPsych, true);
+  const debrief = jsPsychTimelineReactionTimeDemo.createTimeline(jsPsych, true);
 
   jsPsych.run([intro, test, debrief])
 </script>
 ```
-
-
 
 ### Typing the parameters object in `createTimeline`
 
@@ -780,7 +766,9 @@ export function createTimeline(jsPsych:JsPsych, options ) {
 
   timeline.push(timelineIntro(jsPsych, options.instructions));
   timeline.push(timelineTest(jsPsych, options.repetitions));
-  timeline.push(timelineDebrief(jsPsych, options.debrief));
+  if(options.debrief){
+    timeline.push(timelineDebrief(jsPsych))
+  }
 
   return { timeline: timeline };
 }
@@ -801,7 +789,9 @@ export function createTimeline(jsPsych:JsPsych, options: {
 
   timeline.push(timelineIntro(jsPsych, options.instructions));
   timeline.push(timelineTest(jsPsych, options.repetitions));
-  timeline.push(timelineDebrief(jsPsych, options.debrief));
+  if(options.debrief){
+    timeline.push(timelineDebrief(jsPsych))
+  }
 
   return { timeline: timeline };
 }
@@ -903,7 +893,7 @@ We should keep this workflow in mind as we add new parameters. To restate the st
     import jsPsychHtmlKeyboardResponse from "@jspsych/plugin-html-keyboard-response";
     import jsPsychImageKeyboardResponse from "@jspsych/plugin-image-keyboard-response";
 
-    function timelineIntro(jsPsych: JsPsych, optionInstructions: boolean = true) {
+    function timelineIntro(jsPsych: JsPsych, option_instructions: boolean = true) {
       var intro_block = [];
 
       var welcome = {
@@ -932,7 +922,7 @@ We should keep this workflow in mind as we add new parameters. To restate the st
         post_trial_gap: 2000
       };
 
-      if(optionInstructions){
+      if(option_instructions){
         intro_block.push(instructions)
         return intro_block
       }
@@ -940,7 +930,7 @@ We should keep this workflow in mind as we add new parameters. To restate the st
       return intro_block
     }
 
-    function timelineTest(jsPsych: JsPsych, optionRepetitions: number = 5) {
+    function timelineTest(jsPsych: JsPsych, option_repetitions: number = 5) {
       var test_stimuli = [
         { stimulus: "../assets/blue.png",  correct_response: 'f'},
         { stimulus: "../assets/orange.png",  correct_response: 'j'}
@@ -974,14 +964,14 @@ We should keep this workflow in mind as we add new parameters. To restate the st
       var test_procedure = {
         timeline: [fixation, test],
         timeline_variables: test_stimuli,
-        repetitions: optionRepetitions,
+        repetitions: option_repetitions,
         randomize_order: true
       };
 
       return [test_procedure];
     }
 
-    function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
+    function timelineDebrief(jsPsych: JsPsych) {
       var debrief_block = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
@@ -996,12 +986,6 @@ We should keep this workflow in mind as we add new parameters. To restate the st
             <p>Press any key to complete the experiment. Thank you!</p>`;
         }
       }
-
-      if(optionDebrief){
-        return debrief_block
-      } else {
-        return []
-      }
     }
 
     interface CreateTimelineOptions {
@@ -1015,7 +999,9 @@ We should keep this workflow in mind as we add new parameters. To restate the st
 
       timeline.push(timelineIntro(jsPsych, options.instructions))
       timeline.push(timelineTest(jsPsych, options.repetitions))
-      timeline.push(timelineDebrief(jsPsych, options.debrief))
+      if(options.debrief){
+        timeline.push(timelineDebrief(jsPsych))
+      }
 
       return { timeline: timeline }
     }
@@ -1037,7 +1023,7 @@ With the bigger conceptual portions of the experiment factored out as parameteri
 To start thinking about `utils`, we're going to again default to the simplest case scenario, take what already exists in our code, and wrap it off into a separate function for export. A good place to start would be any of the functions returning a value to our trial objects. For example, let's look at the debrief trial at the end of the experiment.
 
 ```javascript
-function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
+function timelineDebrief(jsPsych: JsPsych) {
   var debrief_block = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: function() {
@@ -1051,12 +1037,6 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
         <p>Your average response time was ${rt}ms.</p>
         <p>Press any key to complete the experiment. Thank you!</p>`;
     }
-  }
-
-  if(optionDebrief){
-    return debrief_block
-  } else {
-    return []
   }
 }
 ```
@@ -1077,7 +1057,7 @@ function getPerformance(jsPsych: JsPsych) {
 Then, let's call our new function in the original `stimulus` definition.
 
 ```javascript
-function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
+function timelineDebrief(jsPsych: JsPsych) {
   var debrief_block = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: function() {
@@ -1087,12 +1067,6 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
         <p>Your average response time was ${performance_data.rt}ms.</p>
         <p>Press any key to complete the experiment. Thank you!</p>`;
     }
-  }
-
-  if(optionDebrief){
-    return debrief_block
-  } else {
-    return []
   }
 }
 ```
@@ -1128,8 +1102,32 @@ By factoring out `getPerformance`, we open up some flexibility for users and dev
 
 Users could also call `getPerformance` from their HTML like any other export, so long as it's called within the context of another jsPsych timeline.
 
-```javascript title="my cool example in examples/index.html"
+```html title="examples/index.html"
+<script>
+  const jsPsych = initJsPsych({
+    on_finish: function() {
+    jsPsych.data.displayData();
+  }});
 
+  var test = {
+    type: jsPsychImageKeyboardResponse,
+    stimulus: jsPsych.timelineVariable('stimulus'),
+    choices: ['f', 'j'],
+    data: {
+      task: 'response',
+      correct_response: jsPsych.timelineVariable('correct_response');
+    },
+    on_finish: function(data){
+      data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+      
+      const performance_data = jsPsychTimelineReactionTimeDemo.utils.getPerformance(jsPsych);
+      data.total_accuracy = performance_data.accuracy;
+      data.total_rt = performance_data.rt;
+    }
+  };
+
+  jsPsych.run([test])
+</script>
 ```
 :::warning Script Tag
 Remember, for the above to work from the HTML, you need to add a script tag to the HTML head that imports `jsPsychHtmlKeyboardReponse` via CDN. 
@@ -1172,7 +1170,7 @@ function getPerformance(jsPsych: JsPsych) {
 We could then reference these outputs again in the original `timelineDebrief` context, with the returned HTML string expanded to interpolate those values.
 
 ```javascript
-function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
+function timelineDebrief(jsPsych: JsPsych) {
   var debrief_block = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: () => {
@@ -1187,19 +1185,13 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
         <p>Press any key to complete the experiment. Thank you!</p>`;
     }
   }
-
-  if(optionDebrief){
-    return debrief_block
-  } else {
-    return []
-  }
 }
 ```
 
 Of course, our user may not always want to return the same stimulus HTML, with all of the metrics available from `getPerformance`. We can afford the user some flexibility when customizing their debrief by writing out a `formatDebrief` argument. Let's type this argument as a function and set a fallback that takes `performance_data` and returns the original string.
 
 ```javascript
-function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
+function timelineDebrief(jsPsych: JsPsych,
   formatDebrief: Function = function(performance_data) {
     return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
       <p>Your average response time was ${performance_data.rt}ms.</p>
@@ -1213,12 +1205,6 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
 
       return formatDebrief(performance_data);
     }
-  }
-
-  if(optionDebrief){
-    return debrief_block
-  } else {
-    return []
   }
 }
 ```
@@ -1347,7 +1333,7 @@ The core jsPsych team is actually working at the moment on implementing a first-
       };
     }
 
-    function timelineIntro(jsPsych: JsPsych, optionInstructions: boolean = true, fixationDuration: boolean = "random") {
+    function timelineIntro(jsPsych: JsPsych, option_instructions: boolean = true, fixationDuration: boolean = "random") {
       var intro_block = [];
 
       var welcome = {
@@ -1376,7 +1362,7 @@ The core jsPsych team is actually working at the moment on implementing a first-
         post_trial_gap: 2000
       };
 
-      if(optionInstructions){
+      if(option_instructions){
         intro_block.push(instructions)
         return intro_block
       }
@@ -1384,7 +1370,7 @@ The core jsPsych team is actually working at the moment on implementing a first-
       return intro_block
     }
 
-    function timelineTest(jsPsych: JsPsych, optionRepetitions: number = 5) {
+    function timelineTest(jsPsych: JsPsych, option_repetitions: number = 5) {
       var test_stimuli = [
         { stimulus: "../assets/blue.png",  correct_response: 'f'},
         { stimulus: "../assets/orange.png",  correct_response: 'j'}
@@ -1416,14 +1402,14 @@ The core jsPsych team is actually working at the moment on implementing a first-
       var test_procedure = {
         timeline: [fixation, test],
         timeline_variables: test_stimuli,
-        repetitions: optionRepetitions,
+        repetitions: option_repetitions,
         randomize_order: true
       };
 
       return [test_procedure];
     }
 
-    function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
+    function timelineDebrief(jsPsych: JsPsych,
       formatDebrief: Function = function(performance_data) {
         return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
           <p>Your average response time was ${performance_data.rt}ms.</p>
@@ -1437,12 +1423,6 @@ The core jsPsych team is actually working at the moment on implementing a first-
 
           return formatDebrief(performance_data);
         }
-      }
-
-      if(optionDebrief){
-        return debrief_block
-      } else {
-        return []
       }
     }
 
@@ -1458,7 +1438,9 @@ The core jsPsych team is actually working at the moment on implementing a first-
 
       timeline.push(timelineIntro(jsPsych, options.instructions))
       timeline.push(timelineTest(jsPsych, options.repetitions))
-      timeline.push(timelineDebrief(jsPsych, options.debrief, options.formatDebrief))
+      if(options.debrief){
+        timeline.push(timelineDebrief(jsPsych, options.formatDebrief))
+      }
 
       return { timeline: timeline }
     }
