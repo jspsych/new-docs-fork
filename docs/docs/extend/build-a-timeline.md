@@ -39,14 +39,14 @@ This tutorial will walk through translating the same basic reaction time task fr
 
 [maybe include an npx CLI setup bit here]
 
-## Overview exports from index.ts
+## Part 1: Review of exports from `index.ts`
 
 `index.js` exports three principle kinds of components. 
 - `createTimeline`: A function that takes each parameter, incorporates every export, and outputs a jsPsych timeline object.
 - `timelineUnits`: An object that includes each part of the larger timeline, broken down into conceptual chunks, typically but not always written as functions.
 - `util`: An object containing smaller logical components that support `createTimeline` or `timelineUnits`, like helper functions or type definitions.
 
-## Setting Up `createTimeline`
+## Part 2: Setting Up `createTimeline`
 
 Since this is the primary export for our package, we can think of this as the "hub" where all of our exports come together to generate a complete, fully configured task. This single export will process any parameters exposed to users and referenced throughout our source code. `createTimeline` will also depend on any timelineUnits and utils we eventually factor out over the course of this tutorial. It's the glue holding our package together, so we'll start here.
 
@@ -286,20 +286,14 @@ jsPsych.run(timeline)
     ```
 </details>
 
-## Setting up a timelineUnit
+## Part 3: Setting up a `timelineUnit`
 
-:::warning Draft Note: Move this up top and rewrite
-"With our `timelineUnits` bracketed out and exported, anyone could isolate, rearrange, or reconfigure any one of the pieces of our original experiment. The next section will expand on that last point and go into parametrizing units for configurability."
-:::
+Now that we understand `createTimeline` as a consistent end product of our source code, we can start to carve it up into `timelineUnits`. To restate, `timelineUnits` are broken down, conceptual pieces of our experiment timeline&mdash;that is, of the script executed in `createTimeline`. Each `timelineUnit` can be typed as an array of `TimelineNodes`. By bracketing out and exporting `timelineUnits`, users could isolate, rearrange, or reconfigure any one of the pieces of our original experiment.
 
-Now that we understand `createTimeline` as a consistent end product of our source code, we can start to carve it up into `timelineUnits`. To restate, `timelineUnits` are broken down, conceptual pieces of our experiment timeline&mdash;that is, of the script executed in `createTimeline`. Each `timelineUnit` can be typed as an array of `TimelineNodes`. On first glance, we can split the script in `createTimeline` into three main chunks:
+On first glance, we can split the script in `createTimeline` into three main chunks:
 - An introduction, made up of the `welcome` and `instructions` nodes
 - The `test_procedure`, alternating between `fixation` and `test` nodes
 - The `debrief` consisting of a single node, with a digest of the participant's performance
-
-:::warning Draft Note: Needs hands-on review
-Everything past this point must be implementationally verified by a few people willing to go through each step, noting build-breaking errors along the way. 
-:::
 
 :::warning Draft Note: Nomenclatures
 Make sure that all nomenclatures are consistent and descriptive throughout
@@ -307,7 +301,7 @@ Make sure that all nomenclatures are consistent and descriptive throughout
 
 The most straightforward way to block out our `timelineUnits` is by wrapping each chunk in a function that returns that chunk.
 
-:::tip jsPsych instance as argument
+:::info jsPsych instance as argument
 In the event that a `timelineUnit` or `util` references core jsPsych methods, each export should take the running jsPsych instance as an argument by default. Otherwise, those methods will not be appropriately defined. We explore other ways to factor out references to the jPsych instance in later sections of this tutorial (pending).
 :::
 
@@ -468,7 +462,7 @@ Put something in the overview, under the first header, that explains `examples/i
 </script>
 ```
 
-With our `timelineUnits` bracketed out and exported, anyone could isolate, rearrange, or reconfigure any one of the pieces of our original experiment. The next section will expand on that last point and go into parametrizing units for configurability.
+Now we have a clear sense, as potential contributors to the jsPsych library, how `timelineUnits` add welcome flexibility to how our package can be used. The next section will expand on that last point and go into parametrizing `timelineUnits` for configurability.
 
 <details>
     <summary><strong>The complete code so far</strong></summary>
@@ -591,7 +585,7 @@ With our `timelineUnits` bracketed out and exported, anyone could isolate, rearr
     ```
 </details>
 
-## Designing and implementing parameters
+## Part 4: Designing and implementing parameters
 
 Now that we have our initial experiment sectioned off into `timelineUnits`, we can now think about designing parameters, based on how we might want to modify the task for iterative deployments.
 
@@ -733,7 +727,7 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief) {
 }
 ```
 
-:::tip Alternative Implementation: Conditional Definition Instead Of Conditional Push
+:::info Alternative Implementation: Conditional Definition Instead Of Conditional Push
 For `instructions`, we can write a basic implementation by wrapping our definition of `var instructions` in an `if`-statement. We'll define `instructions` as a trial object in the case that `optionInstructions` is true. Otherwise, we define `var instructions` as an empty array, since this implementation assumes an `instructions` variable will be pushed to the `intro_block` array either way. We'll also add `optionInstructions` as an argument for the `timelineIntro` function.
 
 :::warning Bug: Typing
@@ -752,7 +746,7 @@ function timelineIntro(jsPsych: JsPsych, optionInstructions: boolean = true)
 function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true)
 ```
 
-These fallbacks allow use to successfully call each `timelineUnit` without defining the second argument. Instead, each `timelineUnit` will reference the fallback by default. This is how we set default parameters as if the timeline were a plugin. This is also how we keep our package build from breaking, insofar as none of the `timelineUnit` calls in `createTimeline` define these parameter arguments&mdash;at least not yet.
+These fallbacks allow us to successfully call each `timelineUnit` without defining the second argument. Instead, each `timelineUnit` will reference the fallback by default. This is how we set default parameters as if the timeline were a plugin. This is also how we keep our package build from breaking, insofar as none of the `timelineUnit` calls in `createTimeline` define these parameter arguments&mdash;at least not yet.
 
 Now, on next build, we'll be able to run these `timelineUnits` from `index.html` while configuring each unit's behavior with the second argument.
 
@@ -828,7 +822,7 @@ interface CreateTimelineOptions {
 
 export function createTimeline(jsPsych:JsPsych, options: CreateTimelineOptions ) {
 ```
-For anyone who's developed a jsPsych plugin before, this will look a little analogous to the [plugin info object](), albeit without any of the boilerplate syntax provided with our plugin template.
+For anyone who's developed a jsPsych plugin before, this will look a little analogous to the [plugin info object](plugins/plugin-tutorial#part-1-review-of-indexts), albeit without any of the boilerplate syntax provided with our plugin template.
 
 In addition to cleaning up our code a little, we have set ourselves up to type `options` as a `Partial` of `interface CreateTimelineOptions`. A `Partial` will include any subset of the type defined in `createTimelineOptions`&mdash;even empty ones! At the same time, it will reject any objects with properties not included in `CreateTimelineOptions`.
 
@@ -844,7 +838,59 @@ export function createTimeline(jsPsych:JsPsych, options: Partial<CreateTimelineO
 
 Now, on next build, we can run any range of complete or partial configurations through our `createTimeline` call in the example HTML.
 
-```html title="examples/index.html"
+```html title="Configuring the original RT task in examples/index.html"
+<script>
+  const jsPsych = initJsPsych({
+    on_finish: function() {
+    jsPsych.data.displayData();
+  }});
+
+  const options = {
+    repetitions: 5,
+    instructions: true,
+    debrief: true,
+  }
+
+  const timeline = jsPsychTimelineReactionTimeDemo.createTimeline(jsPsych, options);
+
+  jsPsych.run([timeline])
+</script>
+```
+```html title="Configuring the RT task without instructions and 10 more trials in examples/index.html"
+<script>
+  const jsPsych = initJsPsych({
+    on_finish: function() {
+    jsPsych.data.displayData();
+  }});
+
+  const options = {
+    repetitions: 10,
+    instructions: false,
+    debrief: true,
+  }
+
+  const timeline = jsPsychTimelineReactionTimeDemo.createTimeline(jsPsych, options);
+
+  jsPsych.run([timeline])
+</script>
+```
+```html title="Configuring the RT task without instructions or debrief, but with 14 total trials, in examples/index.html"
+<script>
+  const jsPsych = initJsPsych({
+    on_finish: function() {
+    jsPsych.data.displayData();
+  }});
+
+  const options = {
+    repetitions: 7,
+    instructions: false,
+    debrief: false,
+  }
+
+  const timeline = jsPsychTimelineReactionTimeDemo.createTimeline(jsPsych, options);
+
+  jsPsych.run([timeline])
+</script>
 ```
 
 We should keep this workflow in mind as we add new parameters. To restate the steps going forward, parameters are (1) introduced as arguments at the component scope, (2) implemented at that same scope, (3) provided a fallback value at scope's function signature, then (4) added to our `interface` type. 
@@ -984,7 +1030,7 @@ We should keep this workflow in mind as we add new parameters. To restate the st
     ```
 </details>
 
-## Setting up a util
+## Part 5: Setting up a util
 
 With the bigger conceptual portions of the experiment factored out as parameterized `timelineUnits`, we can now think about factoring out `utils`, or essential helper functions that support more sophisticated, customizable behaviors. 
 
@@ -1150,11 +1196,11 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true) {
 }
 ```
 
-Of course, our user may not always want to return the same stimulus HTML, with all of the metrics available from `getPerformance`. We can afford the user some flexibility when customizing their debrief by writing out a `customDebrief` argument. Let's type this argument as a function and set a fallback that takes `performance_data` and returns the original string.
+Of course, our user may not always want to return the same stimulus HTML, with all of the metrics available from `getPerformance`. We can afford the user some flexibility when customizing their debrief by writing out a `formatDebrief` argument. Let's type this argument as a function and set a fallback that takes `performance_data` and returns the original string.
 
 ```javascript
 function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
-  customDebrief: Function = function(performance_data) {
+  formatDebrief: Function = function(performance_data) {
     return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
       <p>Your average response time was ${performance_data.rt}ms.</p>
       <p>Press any key to complete the experiment. Thank you!</p>`
@@ -1165,7 +1211,7 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
     stimulus: () => {
       var performance_data = getPerformance(jsPsych)
 
-      return customDebrief(performance_data);
+      return formatDebrief(performance_data);
     }
   }
 
@@ -1177,11 +1223,11 @@ function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
 }
 ```
 
-:::tip Typing `performance_data`
-We could, of course, take advantage of Typescript to make sure that `performance_data` is always structured like a `getPerformance` output. This would involve similar syntax to how we defined `options` first as the `CreateTimelineOptions` interface, then typed the `options` argument in `createTimeline` as `<Partial>CreateTimelineOptions`. For the sake of simplicity, we won't go over this in the tutorial, but it's good to keep in mind.
+:::info Typing `performance_data`
+We could, of course, take advantage of Typescript to make sure that `performance_data` is always structured like a `getPerformance` output. This would involve similar syntax to how we first defined `options` as the `CreateTimelineOptions` interface, then typed the `options` argument in `createTimeline` as `<Partial>CreateTimelineOptions`. For the sake of simplicity, we won't go over this in the tutorial, but it's good to keep in mind.
 :::
 
-Once again, we can confirm that `createTimeline` still works the same by running another build. Users can also influence the debrief HTML by reading their own `customDebrief` function as an argument to the debrief `timelineUnit`.
+Once again, we can confirm that `createTimeline` still works the same by running another build. Users can also influence the debrief HTML by reading their own `formatDebrief` function as an argument to the debrief `timelineUnit`.
 
 ```html title="examples/index.html"
 <script>
@@ -1215,11 +1261,11 @@ interface CreateTimelineOptions {
   repetitions: number,
   instructions: boolean,
   debrief: boolean,
-  customDebrief: Function
+  formatDebrief: Function
 }
 ```
 ```javascript title="timelineDebrief call in createTimeline"
-timeline.push(timelineDebrief(jsPsych, options.debrief, options.customDebrief));
+timeline.push(timelineDebrief(jsPsych, options.debrief, options.formatDebrief));
 ```
 
 Now, on yet another build, we can go into `index.html` and use this new argument to customize our debrief by changing our `createTimeline` configuration. 
@@ -1235,7 +1281,7 @@ Now, on yet another build, we can go into `index.html` and use this new argument
     repetitions: 5,
     instructions: true,
     debrief: true,
-    customDebrief: function(performance_data){
+    formatDebrief: function(performance_data){
       return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
         <p>Your average response time was ${performance_data.rt}ms.</p>
         <p>You responded correctly on ${performance_data.blue_accuracy}% of the blue trials.</p>
@@ -1251,6 +1297,15 @@ Now, on yet another build, we can go into `index.html` and use this new argument
   jsPsych.run(timeline)
 </script>
 ```
+:::tip Unified Text Object
+The core jsPsych team is actually working at the moment on implementing a first-party unified text object for timelines. We plan for community developers to use this as a single consolidated variable where they can store strings referenced throughout the timeline&mdash;including functions that interpolate dynamic values, like the `formatDebrief` solution above.
+
+[leaving the rest here for Alex since they want to write this out more and have better info]
+
+```javascript
+//leaving this codeblock for Alex too in case they want to use it.
+```
+:::
 
 :::warning Draft Note: Consider Rewriting
 "Researchers working primarily from HTML files, without digging into our source, might find new unanticipated uses for any of our `util` exports. Developers, meanwhile, can always modify the util itself and give it new functionality, or refactor it with respect to our `timelineUnits`. By designing jsPsych experiments with a layer of exposed, modular access in the form `timelineUnits` and `utils`, we introduce a new point of feedback in the jsPsych research ecosystem&mdash;one that ultimately helps us build a better tool for everyone."
@@ -1369,7 +1424,7 @@ Now, on yet another build, we can go into `index.html` and use this new argument
     }
 
     function timelineDebrief(jsPsych: JsPsych, optionDebrief: boolean = true,
-      customDebrief: Function = function(performance_data) {
+      formatDebrief: Function = function(performance_data) {
         return `<p>You responded correctly on ${performance_data.accuracy}% of the trials.</p>
           <p>Your average response time was ${performance_data.rt}ms.</p>
           <p>Press any key to complete the experiment. Thank you!</p>`
@@ -1380,7 +1435,7 @@ Now, on yet another build, we can go into `index.html` and use this new argument
         stimulus: function() {
           const performance_data = getPerformance(jsPsych)
 
-          return customDebrief(performance_data);
+          return formatDebrief(performance_data);
         }
       }
 
@@ -1395,7 +1450,7 @@ Now, on yet another build, we can go into `index.html` and use this new argument
       repetitions: number,
       instructions: boolean,
       debrief: boolean,
-      customDebrief: Function
+      formatDebrief: Function
     }
 
     export function createTimeline(jsPsych:JsPsych, options: Partial<CreateTimelineOptions> = {} ) {
@@ -1403,7 +1458,7 @@ Now, on yet another build, we can go into `index.html` and use this new argument
 
       timeline.push(timelineIntro(jsPsych, options.instructions))
       timeline.push(timelineTest(jsPsych, options.repetitions))
-      timeline.push(timelineDebrief(jsPsych, options.debrief, options.customDebrief))
+      timeline.push(timelineDebrief(jsPsych, options.debrief, options.formatDebrief))
 
       return { timeline: timeline }
     }
@@ -1420,10 +1475,10 @@ Now, on yet another build, we can go into `index.html` and use this new argument
     ```
 </details>
 
-## Testing exports
+## Part 6: Testing exports
 ...
 
-## Writing documentation
+## Part 7: Writing documentation
 ...
 
 ## Open a pull request!
