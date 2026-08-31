@@ -21,11 +21,11 @@ This guide still needs to be written. The structure below outlines what it shoul
 
 ## Setting Up Changeset
 
-Before opening a pull request with one of our repository, you should use `npm run changeset` in terminal at the root of your fork, whether of `jspsych-contrib` or `jspsych-timelines`. This will write a markdown file in `/changeset` that describes the first version of your package and any changes to it. 
+Before opening a pull request with one of our repository, you should call `npm run changeset` in terminal at the root of your fork, whether of `jspsych-contrib` or `jspsych-timelines`. This will write a markdown file in `/changeset` that describes the first version of your package and any changes to it. 
 
 We use changesets as part of our release workflow, to generate new releases to npm and their corresponding release notes. This is a [good overview of changesets](https://changesets.dev/faq#how-do-i-add-a-changeset) if you want to learn more.
 
-Even if you forget to include changesets before opening your pull request, jsPsych's review bot will give you a nudge anyway. You can always use the CLI and commit the changesets before merge.
+Even if you forget to include changesets before opening your pull request, jsPsych's review bot will nudge you to take care of it. You can always use the CLI and commit the changesets before merge. Note that if your package was set up with either of our `jspsych-dev` CLI tools, your package starts at version 0.0.1.
 
 As a shorthand, major versions (1.0.0) indicate releases that are not backwards compatible and will break users' code, while minor versions (0.1.0) indicate changes that are backwards compatible. Patches and bug fixes are indicated in the last release number (0.0.1)
 
@@ -60,7 +60,7 @@ Your open pull request should be titled something equivalent to "Add my-awesome-
 - **A breakdown of files included in the pull request.** This should mirror and confirm what's in the checklist.
 - **An author line** listing who worked on the package.
 
-**Keep an eye on your pull request after you've opened it.** Once it's opened, a member of our core team will review the code to be merged and suggest changes as necessary to specific lines. Commit the necessary changes, then leave another comment summarizing those changes when you're done. Our team will then review and, hopefully, approve those changes before merging your code. 
+**Keep an eye on your pull request after you've opened it.** Once it's opened, a member of our core team will review the code to be merged and suggest changes as necessary to specific lines. Commit the necessary changes, then leave another comment summarizing those changes when you're done. Our team will then review and possibly prescribe additional changes. Your package will potentially go through a few rounds of review before it's - hopefully - merged. 
 
 By that point, congrats! You'll have given behavioral scientists new ways to collect data using jsPsych.
 
@@ -72,6 +72,10 @@ If this matches a contribution you have for jsPsych, feel free to still open a p
 - **Running changeset** to include your changes in the release notes for jsPsych, or the release note for a specific jsPsych package.
 - **Adding a test file** to show that a new feature works, that a bug is now fixed, or merged changes to code don't break it.
 - **Adding an example file** to show off a new feature.
+
+:::warning Draft Note: Suggested Restructuring / Reframing of this Section
+*From Alex:* honestly not sure about the structure or keeping this in/tying it with the article at hand, full package contributions, bug fixes/feature contributions, and non-package contributions are all worth talking about and have a lot of similarities in how their PRs are structured, but have different requirements. worth discussing w/ josh what a good structure would look like for that, b/c i think it warrants a full or more complete explanation
+:::
 
 ## See also
 
